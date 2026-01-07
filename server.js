@@ -338,7 +338,7 @@ app.get('/api/departments', authenticateToken, (req, res) => {
     }
 
     // 所有角色都可以查看部门列表
-    db.all('SELECT * FROM department WHERE status = ?', ['active'], (err, departments) => {
+    db.all('SELECT * FROM department', (err, departments) => {
       if (err) {
         return res.status(500).json({ error: '查询部门失败' });
       }
