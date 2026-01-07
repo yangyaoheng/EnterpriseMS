@@ -142,7 +142,7 @@ const DepartmentList: React.FC = () => {
                   {department.status === 'active' ? '活跃' : '不活跃'}
                 </span>
               </td>
-              <td>{new Date(department.created_at).toLocaleString()}</td>
+              <td>{department.created_at}</td>
               <td>
                 <Button variant="info" size="sm" className="me-2" onClick={() => handleEditClick(department)}>
                   编辑

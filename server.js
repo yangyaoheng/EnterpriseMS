@@ -186,7 +186,21 @@ app.get('/api/employees', authenticateToken, (req, res) => {
       if (err) {
         return res.status(500).json({ error: '查询雇员失败' });
       }
-      res.json(employees);
+      // 将UTC时间转换为北京时间
+      const employeesWithLocalTime = employees.map(employee => {
+        // 手动将UTC时间加上8小时转换为北京时间
+        const convertToBeijingTime = (utcDateString) => {
+          const utcDate = new Date(utcDateString);
+          const beijingDate = new Date(utcDate.getTime() + 8 * 60 * 60 * 1000);
+          return beijingDate.toLocaleString('zh-CN');
+        };
+        return {
+          ...employee,
+          created_at: convertToBeijingTime(employee.created_at),
+          updated_at: convertToBeijingTime(employee.updated_at)
+        };
+      });
+      res.json(employeesWithLocalTime);
     });
   });
 });
@@ -305,7 +319,8 @@ app.put('/api/employees/:id', authenticateToken, upload.single('photo'), async (
       }
 
       if (updateFields.length === 0) {
-        return res.status(400).json({ error: '没有需要更新的字段' });
+        // 如果没有需要更新的字段，直接返回成功
+        return res.status(200).json({ message: '部门更新成功' });
       }
 
       updateValues.push(id);
@@ -342,7 +357,21 @@ app.get('/api/departments', authenticateToken, (req, res) => {
       if (err) {
         return res.status(500).json({ error: '查询部门失败' });
       }
-      res.json(departments);
+      // 将UTC时间转换为北京时间
+      const departmentsWithLocalTime = departments.map(department => {
+        // 手动将UTC时间加上8小时转换为北京时间
+        const convertToBeijingTime = (utcDateString) => {
+          const utcDate = new Date(utcDateString);
+          const beijingDate = new Date(utcDate.getTime() + 8 * 60 * 60 * 1000);
+          return beijingDate.toLocaleString('zh-CN');
+        };
+        return {
+          ...department,
+          created_at: convertToBeijingTime(department.created_at),
+          updated_at: convertToBeijingTime(department.updated_at)
+        };
+      });
+      res.json(departmentsWithLocalTime);
     });
   });
 });
@@ -366,7 +395,7 @@ app.post('/api/departments', authenticateToken, (req, res) => {
       return res.status(400).json({ error: '部门名称不能为空' });
     }
 
-    db.run('INSERT INTO department (name, description) VALUES (?, ?)', [name, description], function(err) {
+    db.run('INSERT INTO department (name, description, status) VALUES (?, ?, ?)', [name, description, 'active'], function(err) {
       if (err) {
         if (err.message.includes('UNIQUE constraint failed')) {
           return res.status(400).json({ error: '部门名称已存在' });
@@ -386,51 +415,57 @@ app.put('/api/departments/:id', authenticateToken, (req, res) => {
   const userId = req.user.userId;
 
   // 先获取用户角色
-  db.get('SELECT r.name FROM user u JOIN user_role ur ON u.id = ur.user_id JOIN role r ON ur.role_id = r.id WHERE u.id = ?', [userId], (err, role) => {
-    if (err) {
-      return res.status(500).json({ error: '获取角色失败' });
-    }
-
-    if (!role || role.name !== '管理员') {
-      return res.status(403).json({ error: '只有管理员可以更新部门' });
-    }
-
-    // 构建更新SQL
-    const updateFields = [];
-    const updateValues = [];
-
-    if (name) {
-      updateFields.push('name = ?');
-      updateValues.push(name);
-    }
-    if (description) {
-      updateFields.push('description = ?');
-      updateValues.push(description);
-    }
-    if (status) {
-      updateFields.push('status = ?');
-      updateValues.push(status);
-    }
-
-    if (updateFields.length === 0) {
-      return res.status(400).json({ error: '没有需要更新的字段' });
-    }
-
-    updateValues.push(id);
-
-    const sql = `UPDATE department SET ${updateFields.join(', ')} WHERE id = ?`;
-
-    db.run(sql, updateValues, function(err) {
+    db.get('SELECT r.name FROM user u JOIN user_role ur ON u.id = ur.user_id JOIN role r ON ur.role_id = r.id WHERE u.id = ?', [userId], (err, role) => {
       if (err) {
-        if (err.message.includes('UNIQUE constraint failed')) {
-          return res.status(400).json({ error: '部门名称已存在' });
-        }
-        return res.status(500).json({ error: '更新部门失败' });
+        return res.status(500).json({ error: '获取角色失败' });
       }
 
-      res.status(200).json({ message: '部门更新成功' });
+      if (!role || role.name !== '管理员') {
+        return res.status(403).json({ error: '只有管理员可以更新部门' });
+      }
+
+      // 构建更新SQL
+      const updateFields = [];
+      const updateValues = [];
+
+      if (name) {
+        updateFields.push('name = ?');
+        updateValues.push(name);
+      }
+      if (description) {
+        updateFields.push('description = ?');
+        updateValues.push(description);
+      }
+      if (status) {
+        updateFields.push('status = ?');
+        updateValues.push(status);
+      }
+
+      if (updateFields.length === 0) {
+        // 如果没有需要更新的字段，直接返回成功
+        return res.status(200).json({ message: '部门更新成功' });
+      }
+
+      updateFields.push('updated_at = CURRENT_TIMESTAMP');
+      updateValues.push(id);
+
+      const sql = `UPDATE department SET ${updateFields.join(', ')} WHERE id = ?`;
+
+      console.log('更新部门SQL:', sql);
+      console.log('更新参数:', updateValues);
+
+      db.run(sql, updateValues, function(err) {
+        if (err) {
+          console.error('更新部门失败:', err);
+          if (err.message.includes('UNIQUE constraint failed')) {
+            return res.status(400).json({ error: '部门名称已存在' });
+          }
+          return res.status(500).json({ error: '更新部门失败' });
+        }
+
+        res.status(200).json({ message: '部门更新成功' });
+      });
     });
-  });
 });
 
 // 启动服务器
