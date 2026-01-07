@@ -323,6 +323,116 @@ app.put('/api/employees/:id', authenticateToken, upload.single('photo'), async (
   });
 });
 
+// 获取部门列表API
+app.get('/api/departments', authenticateToken, (req, res) => {
+  const userId = req.user.userId;
+
+  // 先获取用户角色
+  db.get('SELECT r.name FROM user u JOIN user_role ur ON u.id = ur.user_id JOIN role r ON ur.role_id = r.id WHERE u.id = ?', [userId], (err, role) => {
+    if (err) {
+      return res.status(500).json({ error: '获取角色失败' });
+    }
+
+    if (!role) {
+      return res.status(403).json({ error: '用户未分配角色' });
+    }
+
+    // 所有角色都可以查看部门列表
+    db.all('SELECT * FROM department WHERE status = ?', ['active'], (err, departments) => {
+      if (err) {
+        return res.status(500).json({ error: '查询部门失败' });
+      }
+      res.json(departments);
+    });
+  });
+});
+
+// 添加部门API
+app.post('/api/departments', authenticateToken, (req, res) => {
+  const { name, description } = req.body;
+  const userId = req.user.userId;
+
+  // 先获取用户角色
+  db.get('SELECT r.name FROM user u JOIN user_role ur ON u.id = ur.user_id JOIN role r ON ur.role_id = r.id WHERE u.id = ?', [userId], (err, role) => {
+    if (err) {
+      return res.status(500).json({ error: '获取角色失败' });
+    }
+
+    if (!role || role.name !== '管理员') {
+      return res.status(403).json({ error: '只有管理员可以添加部门' });
+    }
+
+    if (!name) {
+      return res.status(400).json({ error: '部门名称不能为空' });
+    }
+
+    db.run('INSERT INTO department (name, description) VALUES (?, ?)', [name, description], function(err) {
+      if (err) {
+        if (err.message.includes('UNIQUE constraint failed')) {
+          return res.status(400).json({ error: '部门名称已存在' });
+        }
+        return res.status(500).json({ error: '添加部门失败' });
+      }
+
+      res.status(201).json({ message: '部门添加成功', departmentId: this.lastID });
+    });
+  });
+});
+
+// 更新部门API
+app.put('/api/departments/:id', authenticateToken, (req, res) => {
+  const { id } = req.params;
+  const { name, description, status } = req.body;
+  const userId = req.user.userId;
+
+  // 先获取用户角色
+  db.get('SELECT r.name FROM user u JOIN user_role ur ON u.id = ur.user_id JOIN role r ON ur.role_id = r.id WHERE u.id = ?', [userId], (err, role) => {
+    if (err) {
+      return res.status(500).json({ error: '获取角色失败' });
+    }
+
+    if (!role || role.name !== '管理员') {
+      return res.status(403).json({ error: '只有管理员可以更新部门' });
+    }
+
+    // 构建更新SQL
+    const updateFields = [];
+    const updateValues = [];
+
+    if (name) {
+      updateFields.push('name = ?');
+      updateValues.push(name);
+    }
+    if (description) {
+      updateFields.push('description = ?');
+      updateValues.push(description);
+    }
+    if (status) {
+      updateFields.push('status = ?');
+      updateValues.push(status);
+    }
+
+    if (updateFields.length === 0) {
+      return res.status(400).json({ error: '没有需要更新的字段' });
+    }
+
+    updateValues.push(id);
+
+    const sql = `UPDATE department SET ${updateFields.join(', ')} WHERE id = ?`;
+
+    db.run(sql, updateValues, function(err) {
+      if (err) {
+        if (err.message.includes('UNIQUE constraint failed')) {
+          return res.status(400).json({ error: '部门名称已存在' });
+        }
+        return res.status(500).json({ error: '更新部门失败' });
+      }
+
+      res.status(200).json({ message: '部门更新成功' });
+    });
+  });
+});
+
 // 启动服务器
 app.listen(PORT, () => {
   console.log(`服务器运行在 http://localhost:${PORT}`);
