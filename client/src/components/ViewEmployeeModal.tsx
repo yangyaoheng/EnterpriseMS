@@ -28,9 +28,25 @@ const ViewEmployeeModal: React.FC<ViewEmployeeModalProps> = ({ show, onHide, emp
               <td>{employee.name}</td>
             </tr>
             <tr>
-              <td><strong>用户名</strong></td>
-              <td>{employee.username}</td>
-            </tr>
+            <td><strong>用户名</strong></td>
+            <td>{employee.username}</td>
+          </tr>
+          <tr>
+            <td><strong>照片</strong></td>
+            <td>
+              {employee.photo ? (
+                <div>
+                  <img 
+                    src={`http://localhost:3001/uploads/${employee.photo}`} 
+                    alt="雇员照片" 
+                    style={{ width: '150px', height: '150px', objectFit: 'cover', borderRadius: '5px' }}
+                  />
+                </div>
+              ) : (
+                '-'
+              )}
+            </td>
+          </tr>
             <tr>
               <td><strong>性别</strong></td>
               <td>{employee.gender || '-'}</td>

@@ -51,13 +51,21 @@ export const employeeService = {
     return response.data;
   },
 
-  addEmployee: async (employee: Omit<Employee, 'id' | 'user_id' | 'username' | 'email' | 'created_at' | 'updated_at'>): Promise<{ message: string; employeeId: number }> => {
-    const response = await api.post('/employees', employee);
+  addEmployee: async (employee: FormData | Omit<Employee, 'id' | 'user_id' | 'username' | 'email' | 'created_at' | 'updated_at'>): Promise<{ message: string; employeeId: number }> => {
+    const response = await api.post('/employees', employee, {
+      headers: {
+        'Content-Type': employee instanceof FormData ? 'multipart/form-data' : 'application/json'
+      }
+    });
     return response.data;
   },
 
-  updateEmployee: async (id: number, employee: Partial<Omit<Employee, 'id' | 'user_id' | 'username' | 'email' | 'created_at' | 'updated_at'>>): Promise<{ message: string }> => {
-    const response = await api.put(`/employees/${id}`, employee);
+  updateEmployee: async (id: number, employee: FormData | Partial<Omit<Employee, 'id' | 'user_id' | 'username' | 'email' | 'created_at' | 'updated_at'>>): Promise<{ message: string }> => {
+    const response = await api.put(`/employees/${id}`, employee, {
+      headers: {
+        'Content-Type': employee instanceof FormData ? 'multipart/form-data' : 'application/json'
+      }
+    });
     return response.data;
   },
 };

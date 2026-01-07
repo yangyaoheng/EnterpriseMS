@@ -19,7 +19,8 @@ const EditEmployeeModal: React.FC<EditEmployeeModalProps> = ({ show, onHide, emp
     position: '',
     salary: '',
     photo: '',
-    status: 'active'
+    status: 'active',
+    file: null as File | null
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -33,11 +34,12 @@ const EditEmployeeModal: React.FC<EditEmployeeModalProps> = ({ show, onHide, emp
         hireDate: employee.hire_date || '',
         position: employee.position || '',
         salary: employee.salary ? employee.salary.toString() : '',
-        photo: employee.photo || '',
-        status: employee.status || 'active'
+        photo: employee.photo ? `http://localhost:3001/uploads/${employee.photo}` : '',
+        status: employee.status || 'active',
+        file: null
       });
     }
-  }, [employee, show]);
+  }, [employee]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -47,18 +49,19 @@ const EditEmployeeModal: React.FC<EditEmployeeModalProps> = ({ show, onHide, emp
     if (!employee) return;
 
     try {
-      const submitData = {
-        name: formData.name,
-        gender: formData.gender,
-        birthday: formData.birthday,
-        hire_date: formData.hireDate,
-        position: formData.position,
-        salary: formData.salary ? parseFloat(formData.salary) : undefined,
-        photo: formData.photo,
-        status: formData.status
-      };
+      const form = new FormData();
+      form.append('name', formData.name);
+      form.append('gender', formData.gender);
+      form.append('birthday', formData.birthday);
+      form.append('hire_date', formData.hireDate);
+      form.append('position', formData.position);
+      form.append('salary', formData.salary);
+      form.append('status', formData.status);
+      if (formData.file) {
+        form.append('photo', formData.file);
+      }
 
-      await employeeService.updateEmployee(employee.id, submitData);
+      await employeeService.updateEmployee(employee.id, form);
       onHide();
       onEmployeeUpdated();
       // 重置表单
@@ -70,7 +73,8 @@ const EditEmployeeModal: React.FC<EditEmployeeModalProps> = ({ show, onHide, emp
         position: '',
         salary: '',
         photo: '',
-        status: 'active'
+        status: 'active',
+        file: null
       });
     } catch (err: any) {
       setError(err.response?.data?.error || '更新雇员失败');
@@ -150,13 +154,41 @@ const EditEmployeeModal: React.FC<EditEmployeeModalProps> = ({ show, onHide, emp
           </Form.Group>
 
           <Form.Group className="mb-3" controlId="formPhoto">
-            <Form.Label>照片URL</Form.Label>
-            <Form.Control
-              type="url"
-              value={formData.photo}
-              onChange={(e) => setFormData({ ...formData, photo: e.target.value })}
-              placeholder="https://example.com/photo.jpg"
-            />
+            <Form.Label>照片</Form.Label>
+            <div className="mb-2">
+              {formData.photo && (
+                <img 
+                  src={formData.photo} 
+                  alt="雇员照片" 
+                  style={{ width: '100px', height: '100px', objectFit: 'cover', borderRadius: '5px' }}
+                />
+              )}
+            </div>
+            <div className="d-flex gap-2">
+              <Form.Control
+                type="url"
+                value={formData.photo}
+                onChange={(e) => setFormData({ ...formData, photo: e.target.value })}
+                placeholder="https://example.com/photo.jpg"
+                className="flex-grow-1"
+              />
+              <Form.Control
+                type="file"
+                accept="image/*"
+                onChange={(e) => {
+                  const input = e.target as HTMLInputElement;
+                  const file = input.files?.[0];
+                  if (file) {
+                    const reader = new FileReader();
+                    reader.onload = (event) => {
+                      const base64 = event.target?.result as string;
+                      setFormData({ ...formData, photo: base64, file: file });
+                    };
+                    reader.readAsDataURL(file);
+                  }
+                }}
+              />
+            </div>
           </Form.Group>
 
           <Form.Group className="mb-3" controlId="formStatus">

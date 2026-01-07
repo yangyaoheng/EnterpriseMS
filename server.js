@@ -6,14 +6,40 @@ const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const path = require('path');
+const multer = require('multer');
+const fs = require('fs');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
 
 // 中间件
-app.use(helmet());
-app.use(cors());
-app.use(express.json());
+app.use(helmet({
+  crossOriginResourcePolicy: false,
+}));
+app.use(cors({
+  origin: 'http://localhost:3000',
+  credentials: true
+}));
+app.use(express.json({ limit: '5mb' }));
+app.use(express.urlencoded({ limit: '5mb', extended: true }));
+
+// 文件上传配置
+const uploadDir = path.join(__dirname, 'uploads');
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir);
+}
+
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, uploadDir);
+  },
+  filename: function (req, file, cb) {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, uniqueSuffix + path.extname(file.originalname));
+  }
+});
+
+const upload = multer({ storage: storage });
 
 // 速率限制
 const limiter = rateLimit({
@@ -166,9 +192,10 @@ app.get('/api/employees', authenticateToken, (req, res) => {
 });
 
 // 添加雇员API
-app.post('/api/employees', authenticateToken, async (req, res) => {
-  const { name, gender, birthday, hire_date, position, salary, photo } = req.body;
+app.post('/api/employees', authenticateToken, upload.single('photo'), async (req, res) => {
+  const { name, gender, birthday, hire_date, position, salary } = req.body;
   const userId = req.user.userId;
+  const photoPath = req.file ? req.file.filename : null;
 
   // 检查用户权限
   db.get('SELECT r.name FROM user u JOIN user_role ur ON u.id = ur.user_id JOIN role r ON ur.role_id = r.id WHERE u.id = ?', [userId], async (err, role) => {
@@ -198,7 +225,7 @@ app.post('/api/employees', authenticateToken, async (req, res) => {
 
         // 创建雇员
         db.run('INSERT INTO employee (user_id, name, gender, birthday, hire_date, position, salary, photo) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', 
-          [userId, name, gender, birthday, hire_date, position, salary, photo], 
+          [userId, name, gender, birthday, hire_date, position, salary, photoPath], 
           function(err) {
             if (err) {
               return res.status(500).json({ error: '创建雇员失败' });
@@ -207,6 +234,92 @@ app.post('/api/employees', authenticateToken, async (req, res) => {
             res.status(201).json({ message: '雇员添加成功', employeeId: this.lastID });
           });
       });
+  });
+});
+
+// 静态文件服务
+app.use('/uploads', express.static(uploadDir));
+
+// 更新雇员API
+app.put('/api/employees/:id', authenticateToken, upload.single('photo'), async (req, res) => {
+  const { id } = req.params;
+  const { name, gender, birthday, hire_date, position, salary, status } = req.body;
+  const userId = req.user.userId;
+  const photoPath = req.file ? req.file.filename : null;
+
+  // 检查用户权限
+  db.get('SELECT r.name FROM user u JOIN user_role ur ON u.id = ur.user_id JOIN role r ON ur.role_id = r.id WHERE u.id = ?', [userId], async (err, role) => {
+    if (err) {
+      return res.status(500).json({ error: '获取角色失败' });
+    }
+
+    if (!role || (role.name !== '管理员' && role.name !== '部门经理')) {
+      return res.status(403).json({ error: '无权限更新雇员' });
+    }
+
+    // 获取当前雇员信息
+    db.get('SELECT * FROM employee WHERE id = ?', [id], (err, currentEmployee) => {
+      if (err) {
+        return res.status(500).json({ error: '获取雇员信息失败' });
+      }
+
+      if (!currentEmployee) {
+        return res.status(404).json({ error: '雇员不存在' });
+      }
+
+      // 构建更新SQL
+      const updateFields = [];
+      const updateValues = [];
+
+      if (name) {
+        updateFields.push('name = ?');
+        updateValues.push(name);
+      }
+      if (gender) {
+        updateFields.push('gender = ?');
+        updateValues.push(gender);
+      }
+      if (birthday) {
+        updateFields.push('birthday = ?');
+        updateValues.push(birthday);
+      }
+      if (hire_date) {
+        updateFields.push('hire_date = ?');
+        updateValues.push(hire_date);
+      }
+      if (position) {
+        updateFields.push('position = ?');
+        updateValues.push(position);
+      }
+      if (salary) {
+        updateFields.push('salary = ?');
+        updateValues.push(salary);
+      }
+      if (status) {
+        updateFields.push('status = ?');
+        updateValues.push(status);
+      }
+      if (photoPath) {
+        updateFields.push('photo = ?');
+        updateValues.push(photoPath);
+      }
+
+      if (updateFields.length === 0) {
+        return res.status(400).json({ error: '没有需要更新的字段' });
+      }
+
+      updateValues.push(id);
+
+      const sql = `UPDATE employee SET ${updateFields.join(', ')} WHERE id = ?`;
+
+      db.run(sql, updateValues, function(err) {
+        if (err) {
+          return res.status(500).json({ error: '更新雇员失败' });
+        }
+
+        res.status(200).json({ message: '雇员更新成功' });
+      });
+    });
   });
 });
 

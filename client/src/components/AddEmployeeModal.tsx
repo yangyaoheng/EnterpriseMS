@@ -16,8 +16,7 @@ const AddEmployeeModal: React.FC<AddEmployeeModalProps> = ({ show, onHide, onEmp
     hire_date: '',
     position: '',
     salary: '',
-    photo: '',
-    status: 'active'
+    photo: null as File | null
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -27,17 +26,31 @@ const AddEmployeeModal: React.FC<AddEmployeeModalProps> = ({ show, onHide, onEmp
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setFormData(prev => ({ ...prev, photo: file }));
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setLoading(true);
 
     try {
-      const submitData = {
-        ...formData,
-        salary: formData.salary ? parseFloat(formData.salary) : undefined
-      };
-      await employeeService.addEmployee(submitData);
+      const form = new FormData();
+      form.append('name', formData.name);
+      form.append('gender', formData.gender);
+      form.append('birthday', formData.birthday);
+      form.append('hire_date', formData.hire_date);
+      form.append('position', formData.position);
+      form.append('salary', formData.salary);
+      if (formData.photo) {
+        form.append('photo', formData.photo);
+      }
+
+      await employeeService.addEmployee(form);
       onHide();
       onEmployeeAdded();
       // 重置表单
@@ -48,8 +61,7 @@ const AddEmployeeModal: React.FC<AddEmployeeModalProps> = ({ show, onHide, onEmp
         hire_date: '',
         position: '',
         salary: '',
-        photo: '',
-        status: 'active'
+        photo: null
       });
     } catch (err: any) {
       setError(err.response?.data?.error || '添加雇员失败');
@@ -130,13 +142,11 @@ const AddEmployeeModal: React.FC<AddEmployeeModalProps> = ({ show, onHide, onEmp
           </Form.Group>
 
           <Form.Group className="mb-3" controlId="formPhoto">
-            <Form.Label>照片URL</Form.Label>
+            <Form.Label>照片</Form.Label>
             <Form.Control
-              type="text"
-              name="photo"
-              value={formData.photo}
-              onChange={handleChange}
-              placeholder="照片URL"
+              type="file"
+              accept="image/*"
+              onChange={handleFileChange}
             />
           </Form.Group>
 

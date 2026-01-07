@@ -18,8 +18,8 @@ const NavigationBar: React.FC = () => {
           <Nav className="me-auto">
             {isLoggedIn && (
               <>
-                <Nav.Link href="/">雇员管理</Nav.Link>
-                <Nav.Link href="/dashboard">仪表盘</Nav.Link>
+                <Nav.Link href="/">仪表盘</Nav.Link>
+                <Nav.Link href="/employees">雇员管理</Nav.Link>
               </>
             )}
           </Nav>

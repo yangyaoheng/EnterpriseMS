@@ -5,6 +5,7 @@ import './App.css';
 import Login from './components/Login';
 import Register from './components/Register';
 import EmployeeList from './components/EmployeeList';
+import Dashboard from './components/Dashboard';
 import NavigationBar from './components/Navbar';
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -22,6 +23,14 @@ function App() {
           <Route path="/register" element={<Register />} />
           <Route 
             path="/" 
+            element={
+              <ProtectedRoute>
+                <Dashboard />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/employees" 
             element={
               <ProtectedRoute>
                 <EmployeeList />
