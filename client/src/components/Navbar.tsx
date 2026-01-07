@@ -20,6 +20,7 @@ const NavigationBar: React.FC = () => {
               <>
                 <Nav.Link href="/">仪表盘</Nav.Link>
                 <Nav.Link href="/employees">雇员管理</Nav.Link>
+                <Nav.Link href="/departments">部门管理</Nav.Link>
               </>
             )}
           </Nav>
