@@ -30,3 +30,6 @@ build/
 *.swo
 *~
 .DS_Store
+
+# Uploads directory
+uploads/
